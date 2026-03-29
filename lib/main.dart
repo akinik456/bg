@@ -28,13 +28,14 @@ Future<void> initializeService() async {
 
   await service.configure(
     androidConfiguration: AndroidConfiguration(
-      onStart: onStart, // Hayalet işçi burada başlıyor
-      autoStart: true,
+      onStart: onStart,
+      autoStart: true, 
       isForegroundMode: true,
       notificationChannelId: 'bg_service_channel',
-      initialNotificationTitle: 'BG AKTİF',
-      initialNotificationContent: 'Konum takibi yapılıyor...',
+      initialNotificationTitle: 'BG SİSTEMİ',
+      initialNotificationContent: 'Takip ve koruma aktif.',
       foregroundServiceNotificationId: 888,
+      // Hatalı 'forceRepoer...' satırını buradan sildik
     ),
     iosConfiguration: IosConfiguration(
       autoStart: true,
@@ -48,6 +49,31 @@ Future<void> initializeService() async {
 void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
+  if (service is AndroidServiceInstance) {
+    service.on('setAsForeground').listen((event) {
+      service.setAsForegroundService();
+    });
+
+    service.on('setAsBackground').listen((event) {
+      service.setAsBackgroundService();
+    });
+  }
+
+  service.on('stopService').listen((event) {
+    service.stopSelf();
+  });
+  
+  // 10 saniyelik döngü içinde bildirimi güncel tut
+  Timer.periodic(const Duration(seconds: 10), (timer) async {
+    if (service is AndroidServiceInstance) {
+      if (await service.isForegroundService()) {
+        service.setForegroundNotificationInfo(
+          title: "BG GÜVENLİK AKTİF",
+          content: "📍 Takip Devam Ediyor: ${DateTime.now().hour}:${DateTime.now().minute}",
+        );
+      }
+    }
+  
   Timer.periodic(const Duration(seconds: 10), (timer) async {
     // 1. Konum Al
     try {
