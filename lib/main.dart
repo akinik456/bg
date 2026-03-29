@@ -63,8 +63,6 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
   });
   
-  // 10 saniyelik döngü içinde bildirimi güncel tut
-  Timer.periodic(const Duration(seconds: 10), (timer) async {
     if (service is AndroidServiceInstance) {
       if (await service.isForegroundService()) {
         service.setForegroundNotificationInfo(
@@ -82,15 +80,15 @@ void onStart(ServiceInstance service) async {
       );
 
       // 2. Dosyaya Yaz (Arka planda direkt path_provider kullanamayabiliriz, statik yol lazım)
-      final directory = await getApplicationDocumentsDirectory();
+      /*final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/bg_logs.txt');
       final String timestamp = DateTime.now().toString().split('.').first;
       
       String logLine = "[$timestamp] BG-BACK: ${position.latitude}, ${position.longitude}\n";
       await file.writeAsString(logLine, mode: FileMode.append);
       
-      print("👻 HAYALET YAZDI: $logLine");
-
+      print("👻 HAYALET YAZDI: $logLine");*/
+		print("Konum Alındı: ${position.latitude}");
       // 3. Bildirimi Güncelle (Kullanıcı çalıştığını görsün)
       if (service is AndroidServiceInstance) {
         service.setForegroundNotificationInfo(
