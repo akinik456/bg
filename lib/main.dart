@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'gps_service.dart';
+import 'dart:async';
 
 void main() => runApp(const MaterialApp(home: BgApp(), debugShowCheckedModeBanner: false));
 
@@ -10,79 +10,36 @@ class BgApp extends StatefulWidget {
   State<BgApp> createState() => _BgAppState();
 }
 
-class _BgAppState extends State<BgApp> with WidgetsBindingObserver {
-  final GpsService _gps = GpsService();
-  String _uiMsg = "Kontrol ediliyor...";
+class _BgAppState extends State<BgApp> {
+  bool _isAlwaysGranted = false;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // Ayarlardan dönüşü yakalamak için
-    _initLogic();
+    // Uygulama açılır açılmaz inatçı takibi başlat
+    _startStubbornCheck();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    _timer?.cancel(); // Bellek sızıntısını önle
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      print("LOG: [Main] Ayarlardan dönüldü, kontrol tetikleniyor.");
-      _initLogic();
-    }
-  }
+  // İnatçı Takip: İzin 'Always' olana kadar her saniye sorgular
+  void _startStubbornCheck() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      LocationPermission perm = await Geolocator.checkPermission();
+      print("LOG: Mevcut Durum Sorgulanıyor: $perm");
 
-  // Ana Kontrol Mekanizması
-  Future<void> _initLogic() async {
-    LocationPermission perm = await _gps.checkCurrentPermission();
-    print("LOG: [Main] Mevcut İzin: $perm");
-
-    // 1. Hiç izin yoksa iste
-    if (perm == LocationPermission.denied) {
-      perm = await _gps.requestInitialPermission();
-      if (perm == LocationPermission.denied) {
-        setState(() => _uiMsg = "Konum izni olmadan devam edemeyiz bro.");
-        return;
+      if (perm == LocationPermission.always) {
+        if (mounted) {
+          setState(() => _isAlwaysGranted = true);
+        }
+        timer.cancel(); // İzin alındı, artık rahat bırak sistemi
       }
-    }
-
-    // 2. "While in use" var ama "Always" yoksa Diyalog çıkar
-    if (perm == LocationPermission.whileInUse) {
-      print("LOG: [Main] WhileInUse tamam, Always eksik. Diyalog açılıyor.");
-      _showAlwaysDialog();
-      return;
-    }
-
-    // 3. Her şey tamamsa
-    if (perm == LocationPermission.always) {
-      setState(() => _uiMsg = "OK");
-    }
-  }
-
-  // Kullanıcıyı bilgilendiren o meşhur pencere
-  void _showAlwaysDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false, // Boşluğa basınca kapanmasın
-      builder: (context) => AlertDialog(
-        title: const Text("Arka Plan İzni Gerekli"),
-        content: const Text(
-          "Uygulamanın ekran kapalıyken de çalışabilmesi için ayarlardan 'Her Zaman İzin Ver' seçeneğini işaretlemen gerekiyor bro."
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context); // Diyaloğu kapat
-              await _gps.openSettings(); // Ayarları aç
-            },
-            child: const Text("AYARLARA GİT"),
-          ),
-        ],
-      ),
-    );
+    });
   }
 
   @override
@@ -90,21 +47,38 @@ class _BgAppState extends State<BgApp> with WidgetsBindingObserver {
     return Scaffold(
       appBar: AppBar(title: const Text('StalkGuard GPS')),
       body: Center(
-        child: _uiMsg == "OK"
-            ? StreamBuilder<Position>(
-                stream: _gps.positionStream,
-                builder: (context, snap) {
-                  if (snap.hasData) {
-                    return Text(
-                      "Lat: ${snap.data!.latitude}\nLng: ${snap.data!.longitude}",
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                    );
-                  }
-                  return const Text("GPS Verisi Bekleniyor...");
-                },
-              )
-            : Text(_uiMsg, textAlign: TextAlign.center),
+        child: _isAlwaysGranted 
+          ? StreamBuilder<Position>(
+              stream: Geolocator.getPositionStream(
+                locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 1)
+              ),
+              builder: (context, snap) {
+                if (snap.hasData) {
+                  return Text(
+                    "Lat: ${snap.data!.latitude}\nLng: ${snap.data!.longitude}",
+                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                  );
+                }
+                return const CircularProgressIndicator();
+              },
+            )
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.warning_amber_rounded, size: 80, color: Colors.orange),
+                const Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: Text(
+                    "AYARLARDAN 'HER ZAMAN' SEÇMEN LAZIM.\nSeçtiğin an bu ekran kendiliğinden değişecek bro.",
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () => Geolocator.openAppSettings(),
+                  child: const Text("AYARLARI AÇ"),
+                ),
+              ],
+            ),
       ),
     );
   }
