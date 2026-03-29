@@ -1,6 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-xmlns:tools="http://schemas.android.com/tools"
-    package="com.example.bg">
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
@@ -10,6 +9,8 @@ xmlns:tools="http://schemas.android.com/tools"
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.INTERNET" />
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
     <application
         android:label="bg"
@@ -19,6 +20,7 @@ xmlns:tools="http://schemas.android.com/tools"
         <service
 		android:name="id.flutter.flutter_background_service.BackgroundService"
 		android:foregroundServiceType="location"
+		android:enabled="true"
 		android:exported="true"
 		tools:replace="android:exported" />
 
